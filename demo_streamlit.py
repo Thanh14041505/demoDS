@@ -56,10 +56,10 @@ else:
 if choice == "Overall":
     st.title("Trang tổng quan (Overall)")
         # hero image (placeholder) - không gắn link
-        if os.path.exists("xe_may_cu.jpg"):
-            st.image("xe_may_cu.jpg", caption="Dự án: Dự đoán giá & Phát hiện bất thường (hình minh họa)")
-        else:
-            st.image("xe_may_cu.jpg", caption="Hình minh họa (xe máy cũ)")
+    if os.path.exists("hero.jpg"):
+        st.image("hero.jpg", caption="Dự án: Dự đoán giá & Phát hiện bất thường (hình minh họa)")
+    else:
+        st.image("xe_may_cu.jpg", caption="Hình minh họa (xe máy cũ)")
     
         st.markdown("""
         ### Business Objective
@@ -223,6 +223,7 @@ elif choice == "Phát hiện bất thường":
                 st.exception(e)
 
 # End of file
+
 
 
 
