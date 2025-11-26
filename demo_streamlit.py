@@ -54,52 +54,52 @@ else:
 
 # ---------- Pages ----------
 if choice == "Overall":
-st.title("Trang tổng quan (Overall)")
-    # hero image (placeholder) - không gắn link
-    if os.path.exists("hero.jpg"):
-        st.image("hero.jpg", caption="Dự án: Dự đoán giá & Phát hiện bất thường (hình minh họa)")
-    else:
-        st.image("xe_may_cu.jpg", caption="Hình minh họa (xe máy cũ)")
-
-    st.markdown("""
-    ### Business Objective
-    Project này nhằm triển khai hai tính năng cho nền tảng Chợ Tốt (giả sử chưa có): 
-    - **Dự đoán giá (Price Prediction)**: Xây dựng mô hình ML để ước tính giá bán hợp lý cho xe máy cũ dựa trên các đặc trưng như thương hiệu, năm đăng ký, số km đã đi, v.v. Giúp người bán định giá chính xác và người mua tham khảo.
-    - **Phát hiện bất thường (Anomaly Detection)**: Xác định các xe có giá quá thấp (có thể lỗi nhập liệu, khuyến mãi đặc biệt, hoặc hàng giả) hoặc quá cao (thổi phồng giá hoặc xe hiếm sưu tầm). Tập trung vào xe máy cũ tại TP.HCM (dữ liệu trước 01/07/2025), sử dụng residual từ mô hình dự đoán để detect.
+    st.title("Trang tổng quan (Overall)")
+        # hero image (placeholder) - không gắn link
+        if os.path.exists("hero.jpg"):
+            st.image("hero.jpg", caption="Dự án: Dự đoán giá & Phát hiện bất thường (hình minh họa)")
+        else:
+            st.image("xe_may_cu.jpg", caption="Hình minh họa (xe máy cũ)")
     
-    Giá trị kinh doanh: Tăng độ tin cậy nền tảng, giảm gian lận, cải thiện trải nghiệm user.
-    """)
-
-    st.markdown("""
-    ### Tóm tắt EDA (Exploratory Data Analysis)
-    - **Kích thước data**: 7208 rows, 18 columns (id, Tiêu đề, Giá, Khoảng giá min/max, Địa chỉ, Mô tả, Thương hiệu, Dòng xe, Năm đăng ký, Số Km đã đi, Tình trạng, Loại xe, Dung tích xe, Xuất xứ, Chính sách bảo hành, Trọng lượng, Href).
-    - **Missing values**: Cao nhất ở Khoảng giá min (202), max (197); thấp ở Giá (2). Tổng missing thấp (~3-5% ở vài cột) → Data khá sạch, fill bằng mode/mean.
-    - **Phân bố target (Giá)**: Skewed phải (median ~16.5tr, mean ~49tr do outliers); min=0 (bất thường), max=136 tỷ (lỗi/outlier). Histogram filter <200tr cho thấy peak ~10-30tr (xe phổ thông).
-    - **Insights**: Correlation mạnh: Giá giảm khi Số Km tăng hoặc Năm đăng ký cũ. Categorical: Honda/Yamaha chiếm đa số. Outliers ở Giá cao/thấp → Cần clean cho modeling.
-    """)
-
-    st.markdown("""
-    ### So sánh các Models (Regression)
-    Dưới đây là bảng tóm tắt hiệu suất các mô hình đã thử (trên test set):
+        st.markdown("""
+        ### Business Objective
+        Project này nhằm triển khai hai tính năng cho nền tảng Chợ Tốt (giả sử chưa có): 
+        - **Dự đoán giá (Price Prediction)**: Xây dựng mô hình ML để ước tính giá bán hợp lý cho xe máy cũ dựa trên các đặc trưng như thương hiệu, năm đăng ký, số km đã đi, v.v. Giúp người bán định giá chính xác và người mua tham khảo.
+        - **Phát hiện bất thường (Anomaly Detection)**: Xác định các xe có giá quá thấp (có thể lỗi nhập liệu, khuyến mãi đặc biệt, hoặc hàng giả) hoặc quá cao (thổi phồng giá hoặc xe hiếm sưu tầm). Tập trung vào xe máy cũ tại TP.HCM (dữ liệu trước 01/07/2025), sử dụng residual từ mô hình dự đoán để detect.
+        
+        Giá trị kinh doanh: Tăng độ tin cậy nền tảng, giảm gian lận, cải thiện trải nghiệm user.
+        """)
     
-    | Mô hình                  | RMSE (triệu VND) | MAE (triệu VND) | R²   | Ghi chú |
-    |--------------------------|------------------|-----------------|------|---------|
-    | Linear Regression        | 9.39            | 5.88           | 0.62 | Cơ bản, tuyến tính, chưa nắm được quan hệ phi tuyến giữa các biến. |
-    | Random Forest            | 8.92            | 5.42           | 0.66 | Học tốt hơn nhờ bắt được quan hệ phi tuyến, giảm sai số đáng kể. |
-    | Gradient Boosting Regressor | 8.86         | 5.22           | 0.66 | Hiệu quả cao hơn nhẹ, học sâu dần để sửa lỗi từng bước. |
-    | XGBoost Regressor        | 8.81            | 5.29           | 0.66 | Ổn định, huấn luyện nhanh hơn, hiệu năng gần tương đương GBoost. |
+        st.markdown("""
+        ### Tóm tắt EDA (Exploratory Data Analysis)
+        - **Kích thước data**: 7208 rows, 18 columns (id, Tiêu đề, Giá, Khoảng giá min/max, Địa chỉ, Mô tả, Thương hiệu, Dòng xe, Năm đăng ký, Số Km đã đi, Tình trạng, Loại xe, Dung tích xe, Xuất xứ, Chính sách bảo hành, Trọng lượng, Href).
+        - **Missing values**: Cao nhất ở Khoảng giá min (202), max (197); thấp ở Giá (2). Tổng missing thấp (~3-5% ở vài cột) → Data khá sạch, fill bằng mode/mean.
+        - **Phân bố target (Giá)**: Skewed phải (median ~16.5tr, mean ~49tr do outliers); min=0 (bất thường), max=136 tỷ (lỗi/outlier). Histogram filter <200tr cho thấy peak ~10-30tr (xe phổ thông).
+        - **Insights**: Correlation mạnh: Giá giảm khi Số Km tăng hoặc Năm đăng ký cũ. Categorical: Honda/Yamaha chiếm đa số. Outliers ở Giá cao/thấp → Cần clean cho modeling.
+        """)
     
-    """)
-
-    st.markdown("""
-    ### Lý do chọn Gradient Boosting Regressor
-    Bài toán dự đoán giá xe máy cũ là regression với data có quan hệ phi tuyến (e.g., Giá không giảm tuyến tính theo Số Km, mà phụ thuộc phức tạp vào Thương hiệu/Dòng xe). Gradient Boosting Regressor phù hợp vì bản chất là ensemble boosting: Xây dựng nhiều trees yếu, sửa lỗi dần dần từ tree trước, giúp capture patterns phức tạp mà không overfit nặng. Kết quả: RMSE/MAE thấp nhất trong các model thử, cân bằng giữa accuracy và tốc độ.
-    """)
-
-    if model_load_error:
-        st.warning(f"Model chưa load: {model_load_error}")
-    else:
-        st.success("Model đã load sẵn (nếu cần dùng sẽ hoạt động trong các tab khác).")
+        st.markdown("""
+        ### So sánh các Models (Regression)
+        Dưới đây là bảng tóm tắt hiệu suất các mô hình đã thử (trên test set):
+        
+        | Mô hình                  | RMSE (triệu VND) | MAE (triệu VND) | R²   | Ghi chú |
+        |--------------------------|------------------|-----------------|------|---------|
+        | Linear Regression        | 9.39            | 5.88           | 0.62 | Cơ bản, tuyến tính, chưa nắm được quan hệ phi tuyến giữa các biến. |
+        | Random Forest            | 8.92            | 5.42           | 0.66 | Học tốt hơn nhờ bắt được quan hệ phi tuyến, giảm sai số đáng kể. |
+        | Gradient Boosting Regressor | 8.86         | 5.22           | 0.66 | Hiệu quả cao hơn nhẹ, học sâu dần để sửa lỗi từng bước. |
+        | XGBoost Regressor        | 8.81            | 5.29           | 0.66 | Ổn định, huấn luyện nhanh hơn, hiệu năng gần tương đương GBoost. |
+        
+        """)
+    
+        st.markdown("""
+        ### Lý do chọn Gradient Boosting Regressor
+        Bài toán dự đoán giá xe máy cũ là regression với data có quan hệ phi tuyến (e.g., Giá không giảm tuyến tính theo Số Km, mà phụ thuộc phức tạp vào Thương hiệu/Dòng xe). Gradient Boosting Regressor phù hợp vì bản chất là ensemble boosting: Xây dựng nhiều trees yếu, sửa lỗi dần dần từ tree trước, giúp capture patterns phức tạp mà không overfit nặng. Kết quả: RMSE/MAE thấp nhất trong các model thử, cân bằng giữa accuracy và tốc độ.
+        """)
+    
+        if model_load_error:
+            st.warning(f"Model chưa load: {model_load_error}")
+        else:
+            st.success("Model đã load sẵn (nếu cần dùng sẽ hoạt động trong các tab khác).")
 
 elif choice == "Dự đoán giá":
     st.header("1. Dự đoán giá xe máy cũ")
@@ -223,4 +223,5 @@ elif choice == "Phát hiện bất thường":
                 st.exception(e)
 
 # End of file
+
 
