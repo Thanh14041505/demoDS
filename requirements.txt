@@ -7,3 +7,4 @@ scikit-learn
 gensim
 openpyxl
 pyvi
+scikit-learn
