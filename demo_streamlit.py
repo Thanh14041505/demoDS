@@ -164,65 +164,118 @@ elif choice == "Phát hiện bất thường":
         st.warning("Chưa có dữ liệu mẫu. Hãy upload file CSV/XLSX có chứa các cột cần thiết.")
         st.stop()
 
-    st.write("Phương pháp: residual = Giá thực - Giá dự đoán. Nếu |residual| > threshold => Bất thường.")
-    st.write("Bạn có thể điều chỉnh ngưỡng bằng slider (VND).")
+    st.write("Phương pháp: So sánh giá thực tế với giá ước tính thị trường. Nếu chênh lệch lớn, có thể là bất thường (quá cao hoặc quá thấp).")
 
-    # Inputs for sample
-    try:
-        thuong_hieu_a = st.selectbox("Chọn hãng xe (anomaly)", df['Thương hiệu'].dropna().unique(), key="a1")
-        dong_xe_a = st.selectbox("Chọn dòng xe (anomaly)", df['Dòng xe'].dropna().unique(), key="a2")
-        tinh_trang_a = st.selectbox("Chọn tình trạng (anomaly)", df['Tình trạng'].dropna().unique(), key="a3")
-        loai_xe_a = st.selectbox("Chọn loại xe (anomaly)", df['Loại xe'].dropna().unique(), key="a4")
-        dung_tich_a = st.selectbox("Dung tích xe (anomaly)", df['Dung tích xe'].dropna().unique(), key="a5")
-        xuat_xu_a = st.selectbox("Chọn xuất xứ (anomaly)", df['Xuất xứ'].dropna().unique(), key="a6")
-    except Exception:
-        st.error("Dữ liệu mẫu thiếu các cột cần thiết (Thương hiệu, Dòng xe, Tình trạng, Loại xe, Dung tích xe, Xuất xứ).")
-        st.stop()
+    # Tạo 2 sub-tabs
+    tab_user, tab_admin = st.tabs(["Kiểm tra cho người đăng bài", "Quản lý cho Admin"])
 
-    nam_dk_a = st.slider("Năm đăng ký (anomaly)", 1980, 2025, 2015, key="a7")
-    so_km_a = st.number_input("Số Km đã đi (anomaly)", min_value=0, max_value=500000, value=50000, step=1000, key="a8")
-    gia_thuc_te = st.number_input("Giá thực tế (VND)", min_value=0, max_value=1_000_000_000, value=150_000_000, step=100_000)
-    residual_threshold = st.slider("Ngưỡng residual (VND) để coi là bất thường", min_value=0, max_value=200_000_000, value=10_000_000, step=500_000)
+    with tab_user:
+        st.subheader("Kiểm tra bài đăng của bạn")
+        # Inputs for user
+        try:
+            thuong_hieu_a = st.selectbox("Chọn hãng xe", df['Thương hiệu'].dropna().unique(), key="u1")
+            dong_xe_a = st.selectbox("Chọn dòng xe", df['Dòng xe'].dropna().unique(), key="u2")
+            tinh_trang_a = st.selectbox("Chọn tình trạng", df['Tình trạng'].dropna().unique(), key="u3")
+            loai_xe_a = st.selectbox("Chọn loại xe", df['Loại xe'].dropna().unique(), key="u4")
+            dung_tich_a = st.selectbox("Dung tích xe (cc)", df['Dung tích xe'].dropna().unique(), key="u5")
+            xuat_xu_a = st.selectbox("Chọn xuất xứ", df['Xuất xứ'].dropna().unique(), key="u6")
+        except Exception:
+            st.error("Dữ liệu mẫu thiếu các cột cần thiết.")
+            st.stop()
 
-    btn_check = st.button("Kiểm tra bất thường")
-    if btn_check:
-        if model is None:
-            st.error(f"Model chưa sẵn sàng: {model_load_error}")
+        nam_dk_a = st.slider("Năm đăng ký", 1980, 2025, 2015, key="u7")
+        so_km_a = st.number_input("Số Km đã đi", min_value=0, max_value=500000, value=50000, step=1000, key="u8")
+        gia_thuc_te = st.number_input("Giá thực tế (VND)", min_value=0, max_value=1_000_000_000, value=150_000_000, step=100_000)
+        residual_threshold = st.slider("Ngưỡng chênh lệch (VND) để coi là bất thường", min_value=0, max_value=200_000_000, value=10_000_000, step=500_000)
+
+        btn_check_user = st.button("Kiểm tra và đăng bài")
+        if btn_check_user:
+            if model is None:
+                st.error(f"Model chưa sẵn sàng: {model_load_error}")
+            else:
+                input_row = {
+                    "Thương hiệu": thuong_hieu_a,
+                    "Dòng xe": dong_xe_a,
+                    "Tình trạng": tinh_trang_a,
+                    "Loại xe": loai_xe_a,
+                    "Dung tích xe": dung_tich_a,
+                    "Xuất xứ": xuat_xu_a,
+                    "Năm đăng ký": nam_dk_a,
+                    "Số Km đã đi": so_km_a,
+                    "Giá": gia_thuc_te
+                }
+                df_test = pd.DataFrame([input_row])
+
+                # detect residual anomaly
+                def detect_residual_anomaly_single(df_single, model, threshold):
+                    X = df_single.drop(columns=["Giá"])
+                    pred_price = model.predict(X)[0]
+                    residual = df_single["Giá"].iloc[0] - pred_price
+                    is_anom = abs(residual) > threshold
+                    return pred_price, residual, is_anom
+
+                try:
+                    pred_price, residual, is_anom = detect_residual_anomaly_single(df_test, model, residual_threshold)
+                    st.write(f"Giá ước tính thị trường: {pred_price:,.0f} VND")
+                    st.write(f"Chênh lệch (Giá bạn nhập - Giá ước tính): {residual:,.0f} VND")
+
+                    # Lưu vào session_state cho admin xem (nếu anomalous)
+                    if 'anomaly_records' not in st.session_state:
+                        st.session_state.anomaly_records = []
+
+                    record = {
+                        "Thời gian": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "Hãng xe": thuong_hieu_a,
+                        "Dòng xe": dong_xe_a,
+                        "Giá thực tế": gia_thuc_te,
+                        "Giá dự đoán": pred_price,
+                        "Chênh lệch": residual,
+                        "Status": "Pending" if is_anom else "Approved",
+                        "Bất thường": is_anom
+                    }
+
+                    if is_anom:
+                        if residual > 0:
+                            st.error(f"🚨 Bất thường: Giá bạn nhập quá cao so với giá ước tính thị trường (chênh {residual:,.0f} VND). Có thể do thổi phồng giá hoặc xe hiếm sưu tầm. Bài đăng sẽ chờ admin duyệt.")
+                        else:
+                            st.error(f"🚨 Bất thường: Giá bạn nhập quá thấp so với giá ước tính thị trường (chênh {abs(residual):,.0f} VND). Có thể do lỗi nhập liệu, khuyến mãi đặc biệt, hoặc sản phẩm giả. Bài đăng sẽ chờ admin duyệt.")
+                        record["Bất thường loại"] = "Quá cao" if residual > 0 else "Quá thấp"
+                        st.session_state.anomaly_records.append(record)
+                    else:
+                        st.success(f"✔ Bình thường: Giá hợp lý so với thị trường (chênh lệch ≤ {residual_threshold:,} VND). Bài đăng được chấp nhận tự động.")
+                        st.session_state.anomaly_records.append(record)  # Lưu cả bình thường để admin xem total
+                except Exception as e:
+                    st.error("Lỗi khi kiểm tra bất thường (kiểm tra tên cột/định dạng input so với pipeline).")
+                    st.exception(e)
+
+    with tab_admin:
+        st.subheader("Quản lý bài đăng bất thường")
+        if 'anomaly_records' not in st.session_state or not st.session_state.anomaly_records:
+            st.info("Chưa có bài đăng nào bất thường.")
         else:
-            input_row = {
-                "Thương hiệu": thuong_hieu_a,
-                "Dòng xe": dong_xe_a,
-                "Tình trạng": tinh_trang_a,
-                "Loại xe": loai_xe_a,
-                "Dung tích xe": dung_tich_a,
-                "Xuất xứ": xuat_xu_a,
-                "Năm đăng ký": nam_dk_a,
-                "Số Km đã đi": so_km_a,
-                "Giá": gia_thuc_te
-            }
-            df_test = pd.DataFrame([input_row])
+            # Hiển thị bảng
+            df_admin = pd.DataFrame(st.session_state.anomaly_records)
+            st.dataframe(df_admin)
 
-            # detect residual anomaly
-            def detect_residual_anomaly_single(df_single, model, threshold):
-                X = df_single.drop(columns=["Giá"])
-                pred_price = model.predict(X)[0]
-                residual = df_single["Giá"].iloc[0] - pred_price
-                is_anom = abs(residual) > threshold
-                return pred_price, residual, is_anom
+            # Tổng số bất thường
+            total_anom = df_admin[df_admin['Bất thường'] == True].shape[0]
+            st.write(f"Tổng số bài đăng bất thường: {total_anom} (từ khi app chạy).")
 
-            try:
-                pred_price, residual, is_anom = detect_residual_anomaly_single(df_test, model, residual_threshold)
-                st.write(f"Giá dự đoán (model): {pred_price:,.0f} VND")
-                st.write(f"Residual (Giá thực - Giá dự đoán): {residual:,.0f} VND")
-                if is_anom:
-                    st.error(f"🚨 Bất thường: |residual| > {residual_threshold:,} VND")
-                else:
-                    st.success(f"✔ Bình thường (|residual| ≤ {residual_threshold:,} VND)")
-            except Exception as e:
-                st.error("Lỗi khi kiểm tra bất thường (kiểm tra tên cột/định dạng input so với pipeline).")
-                st.exception(e)
+            # Approve/Reject cho từng row
+            st.write("Chọn bài để duyệt:")
+            selected_index = st.selectbox("Chọn index bài đăng (từ 0)", range(len(df_admin)))
+            if st.button("Approve"):
+                st.session_state.anomaly_records[selected_index]["Status"] = "Approved"
+                st.success(f"Đã approve bài {selected_index}.")
+            if st.button("Reject"):
+                st.session_state.anomaly_records[selected_index]["Status"] = "Rejected"
+                st.success(f"Đã reject bài {selected_index}.")
+
+            # Refresh bảng sau edit
+            st.dataframe(pd.DataFrame(st.session_state.anomaly_records))
 
 # End of file
+
 
 
 
