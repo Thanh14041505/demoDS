@@ -223,7 +223,7 @@ elif choice == "Phát hiện bất thường":
         nam_dk_a = st.slider("Năm đăng ký", 1980, 2025, 2015, key="u7")
         so_km_a = st.number_input("Số Km đã đi", min_value=0, max_value=500000, value=50000, step=1000, key="u8")
         gia_thuc_te = st.number_input("Giá thực tế (VND)", min_value=0, max_value=1_000_000_000, value=150_000_000, step=100_000)
-        residual_threshold = st.slider("Ngưỡng chênh lệch (VND) để coi là bất thường", min_value=0, max_value=200_000_000, value=10_000_000, step=500_000)
+        residual_threshold = st.number_input("Ngưỡng chênh lệch (VND) để coi là bất thường", min_value=0, max_value=200_000_000, value=10_000_000, step=500_000)
 
         # Lưu threshold vào session_state để share với tab_admin
         st.session_state.residual_threshold = residual_threshold
@@ -319,7 +319,7 @@ elif choice == "Phát hiện bất thường":
 
         # Phần 2: Từ dataframe load
         st.markdown("### Từ dataframe load (file mẫu hoặc upload)")
-        admin_threshold = st.slider("Ngưỡng chênh lệch (VND) cho data load", min_value=0, max_value=200_000_000, value=st.session_state.get('residual_threshold', 10_000_000), step=500_000)
+        admin_threshold = st.number_input("Ngưỡng chênh lệch (VND) cho data load", min_value=0, max_value=200_000_000, value=st.session_state.get('residual_threshold', 10_000_000), step=500_000)
         btn_check_df = st.button("Kiểm tra anomaly từ data load")
         if btn_check_df:
             if model is None:
@@ -393,6 +393,7 @@ elif choice == "Phát hiện bất thường":
                     st.exception(e)
 
 # End of file
+
 
 
 
