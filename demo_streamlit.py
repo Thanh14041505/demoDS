@@ -26,6 +26,26 @@ def load_default_data(path=DATA_PATH):
             return None
     return None
 
+def preprocess_df_before_predict(df_raw: pd.DataFrame):
+    df = df_raw.copy()
+
+    # Xử lý "Năm đăng ký"
+    if "Năm đăng ký" in df.columns:
+        df["Năm đăng ký"] = df["Năm đăng ký"].astype(str).str.strip()
+
+        # Nếu chứa "trước", ép về 1980
+        df["Năm đăng ký"] = df["Năm đăng ký"].apply(
+            lambda x: 1980 if "trước" in x.lower() else x
+        )
+
+        # Convert numeric (có thể chứa chuỗi -> NaN)
+        df["Năm đăng ký"] = pd.to_numeric(df["Năm đăng ký"], errors="coerce")
+
+        # Fill NaN bằng 1980 (an toàn)
+        df["Năm đăng ký"] = df["Năm đăng ký"].fillna(1980)
+
+    return df
+
 df = load_default_data()
 
 st.sidebar.markdown("---")
@@ -291,6 +311,8 @@ elif choice == "Phát hiện bất thường":
                 st.error(f"Model chưa sẵn sàng: {model_load_error}")
             else:
                 try:
+
+                    df_clean = preprocess_df_before_predict(df)
                     # Giả sử df có tất cả cột cần, drop missing Giá
                     df_clean = df.dropna(subset=['Giá', 'Thương hiệu', 'Dòng xe', 'Tình trạng', 'Loại xe', 'Dung tích xe', 'Xuất xứ', 'Năm đăng ký', 'Số Km đã đi'])
 
@@ -336,6 +358,7 @@ elif choice == "Phát hiện bất thường":
                     st.exception(e)
 
 # End of file
+
 
 
 
