@@ -189,6 +189,9 @@ elif choice == "Phát hiện bất thường":
         gia_thuc_te = st.number_input("Giá thực tế (VND)", min_value=0, max_value=1_000_000_000, value=150_000_000, step=100_000)
         residual_threshold = st.slider("Ngưỡng chênh lệch (VND) để coi là bất thường", min_value=0, max_value=200_000_000, value=10_000_000, step=500_000)
 
+        # Lưu threshold vào session_state để share với tab_admin
+        st.session_state.residual_threshold = residual_threshold
+
         btn_check_user = st.button("Kiểm tra và đăng bài")
         if btn_check_user:
             if model is None:
@@ -251,20 +254,23 @@ elif choice == "Phát hiện bất thường":
 
     with tab_admin:
         st.subheader("Quản lý bài đăng bất thường")
+
+        # Phần 1: Từ bài đăng user
+        st.markdown("### Từ bài đăng người dùng")
         if 'anomaly_records' not in st.session_state or not st.session_state.anomaly_records:
-            st.info("Chưa có bài đăng nào bất thường.")
+            st.info("Chưa có bài đăng nào từ người dùng.")
         else:
             # Hiển thị bảng
-            df_admin = pd.DataFrame(st.session_state.anomaly_records)
-            st.dataframe(df_admin)
+            df_admin_user = pd.DataFrame(st.session_state.anomaly_records)
+            st.dataframe(df_admin_user)
 
-            # Tổng số bất thường
-            total_anom = df_admin[df_admin['Bất thường'] == True].shape[0]
-            st.write(f"Tổng số bài đăng bất thường: {total_anom} (từ khi app chạy).")
+            # Tổng số bất thường từ user
+            total_anom_user = df_admin_user[df_admin_user['Bất thường'] == True].shape[0]
+            st.write(f"Tổng số bài đăng bất thường từ người dùng: {total_anom_user} (từ khi app chạy).")
 
             # Approve/Reject cho từng row
             st.write("Chọn bài để duyệt:")
-            selected_index = st.selectbox("Chọn index bài đăng (từ 0)", range(len(df_admin)))
+            selected_index = st.selectbox("Chọn index bài đăng (từ 0)", range(len(df_admin_user)))
             if st.button("Approve"):
                 st.session_state.anomaly_records[selected_index]["Status"] = "Approved"
                 st.success(f"Đã approve bài {selected_index}.")
@@ -275,7 +281,62 @@ elif choice == "Phát hiện bất thường":
             # Refresh bảng sau edit
             st.dataframe(pd.DataFrame(st.session_state.anomaly_records))
 
+        # Phần 2: Từ dataframe load
+        st.markdown("### Từ dataframe load (file mẫu hoặc upload)")
+        admin_threshold = st.slider("Ngưỡng chênh lệch (VND) cho data load", min_value=0, max_value=200_000_000, value=st.session_state.get('residual_threshold', 10_000_000), step=500_000)
+
+        btn_check_df = st.button("Kiểm tra anomaly từ data load")
+        if btn_check_df:
+            if model is None:
+                st.error(f"Model chưa sẵn sàng: {model_load_error}")
+            else:
+                try:
+                    # Giả sử df có tất cả cột cần, drop missing Giá
+                    df_clean = df.dropna(subset=['Giá', 'Thương hiệu', 'Dòng xe', 'Tình trạng', 'Loại xe', 'Dung tích xe', 'Xuất xứ', 'Năm đăng ký', 'Số Km đã đi'])
+
+                    if df_clean.empty:
+                        st.warning("Dataframe không có rows valid để check (missing cột cần thiết).")
+                    else:
+                        X = df_clean.drop(columns=["Giá"])
+                        pred_prices = model.predict(X)
+                        residuals = df_clean["Giá"] - pred_prices
+                        is_anom = abs(residuals) > admin_threshold
+
+                        df_anom = df_clean[is_anom].copy()
+                        df_anom["Giá dự đoán"] = pred_prices[is_anom]
+                        df_anom["Chênh lệch"] = residuals[is_anom]
+                        df_anom["Bất thường loại"] = ["Quá cao" if r > 0 else "Quá thấp" for r in residuals[is_anom]]
+                        df_anom["Status"] = "Pending"  # Default cho data load
+                        df_anom["Thời gian"] = None  # Không có thời gian cho data load
+
+                        if df_anom.empty:
+                            st.info("Không có sản phẩm bất thường trong dataframe với ngưỡng này.")
+                        else:
+                            st.dataframe(df_anom)
+                            total_anom_df = df_anom.shape[0]
+                            st.write(f"Tổng số sản phẩm bất thường trong dataframe: {total_anom_df}")
+
+                            # Approve/Reject cho data load (tương tự, nhưng dùng session_state riêng)
+                            if 'df_anom_records' not in st.session_state:
+                                st.session_state.df_anom_records = df_anom.to_dict('records')
+
+                            st.write("Chọn sản phẩm để duyệt (từ dataframe):")
+                            selected_df_index = st.selectbox("Chọn index sản phẩm (từ 0)", range(len(st.session_state.df_anom_records)))
+                            if st.button("Approve (df)"):
+                                st.session_state.df_anom_records[selected_df_index]["Status"] = "Approved"
+                                st.success(f"Đã approve sản phẩm {selected_df_index} từ df.")
+                            if st.button("Reject (df)"):
+                                st.session_state.df_anom_records[selected_df_index]["Status"] = "Rejected"
+                                st.success(f"Đã reject sản phẩm {selected_df_index} từ df.")
+
+                            # Refresh bảng df_anom
+                            st.dataframe(pd.DataFrame(st.session_state.df_anom_records))
+                except Exception as e:
+                    st.error("Lỗi khi kiểm tra dataframe (kiểm tra cột/format khớp model).")
+                    st.exception(e)
+
 # End of file
+
 
 
 
