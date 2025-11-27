@@ -29,22 +29,38 @@ def load_default_data(path=DATA_PATH):
 def preprocess_df_before_predict(df_raw: pd.DataFrame):
     df = df_raw.copy()
 
-    # Xử lý "Năm đăng ký"
+    # ---- XỬ LÝ GIÁ ----
+    if "Giá" in df.columns:
+        df["Giá"] = (
+            df["Giá"]
+            .astype(str)
+            .str.replace(r"[^0-9]", "", regex=True)  # Giữ lại số
+        )
+
+        df["Giá"] = pd.to_numeric(df["Giá"], errors="coerce")
+
+    # ---- XỬ LÝ NĂM ĐĂNG KÝ ----
     if "Năm đăng ký" in df.columns:
         df["Năm đăng ký"] = df["Năm đăng ký"].astype(str).str.strip()
 
-        # Nếu chứa "trước", ép về 1980
         df["Năm đăng ký"] = df["Năm đăng ký"].apply(
             lambda x: 1980 if "trước" in x.lower() else x
         )
 
-        # Convert numeric (có thể chứa chuỗi -> NaN)
         df["Năm đăng ký"] = pd.to_numeric(df["Năm đăng ký"], errors="coerce")
-
-        # Fill NaN bằng 1980 (an toàn)
         df["Năm đăng ký"] = df["Năm đăng ký"].fillna(1980)
 
+    # ---- XỬ LÝ SỐ KM ----
+    if "Số Km đã đi" in df.columns:
+        df["Số Km đã đi"] = (
+            df["Số Km đã đi"]
+            .astype(str)
+            .str.replace(r"[^0-9]", "", regex=True)
+        )
+        df["Số Km đã đi"] = pd.to_numeric(df["Số Km đã đi"], errors="coerce")
+
     return df
+
 
 df = load_default_data()
 
@@ -320,8 +336,10 @@ elif choice == "Phát hiện bất thường":
                         df_clean['Năm đăng ký'] = pd.to_numeric(df_clean['Năm đăng ký'], errors='coerce')
                         # Clean 'Số Km đã đi' nếu cần
                         df_clean['Số Km đã đi'] = pd.to_numeric(df_clean['Số Km đã đi'], errors='coerce')
+                        # Clean 'Giá' to numeric
+                        df_clean['Giá'] = pd.to_numeric(df_clean['Giá'], errors='coerce')
                         # Drop rows còn NaN sau clean
-                        df_clean = df_clean.dropna(subset=['Năm đăng ký', 'Số Km đã đi'])
+                        df_clean = df_clean.dropna(subset=['Năm đăng ký', 'Số Km đã đi', 'Giá'])
                         
                         if df_clean.empty:
                             st.warning("Sau clean, không còn rows valid.")
@@ -358,6 +376,7 @@ elif choice == "Phát hiện bất thường":
                 except Exception as e:
                     st.error("Lỗi khi kiểm tra dataframe (kiểm tra cột/format khớp model).")
                     st.exception(e)
+
 # End of file
 
 
