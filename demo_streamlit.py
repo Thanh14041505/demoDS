@@ -304,59 +304,60 @@ elif choice == "Phát hiện bất thường":
         # Phần 2: Từ dataframe load
         st.markdown("### Từ dataframe load (file mẫu hoặc upload)")
         admin_threshold = st.slider("Ngưỡng chênh lệch (VND) cho data load", min_value=0, max_value=200_000_000, value=st.session_state.get('residual_threshold', 10_000_000), step=500_000)
-
         btn_check_df = st.button("Kiểm tra anomaly từ data load")
         if btn_check_df:
             if model is None:
                 st.error(f"Model chưa sẵn sàng: {model_load_error}")
             else:
                 try:
-
-                    df_clean = preprocess_df_before_predict(df)
                     # Giả sử df có tất cả cột cần, drop missing Giá
                     df_clean = df.dropna(subset=['Giá', 'Thương hiệu', 'Dòng xe', 'Tình trạng', 'Loại xe', 'Dung tích xe', 'Xuất xứ', 'Năm đăng ký', 'Số Km đã đi'])
-
                     if df_clean.empty:
                         st.warning("Dataframe không có rows valid để check (missing cột cần thiết).")
                     else:
-                        X = df_clean.drop(columns=["Giá"])
-                        pred_prices = model.predict(X)
-                        residuals = df_clean["Giá"] - pred_prices
-                        is_anom = abs(residuals) > admin_threshold
-
-                        df_anom = df_clean[is_anom].copy()
-                        df_anom["Giá dự đoán"] = pred_prices[is_anom]
-                        df_anom["Chênh lệch"] = residuals[is_anom]
-                        df_anom["Bất thường loại"] = ["Quá cao" if r > 0 else "Quá thấp" for r in residuals[is_anom]]
-                        df_anom["Status"] = "Pending"  # Default cho data load
-                        df_anom["Thời gian"] = None  # Không có thời gian cho data load
-
-                        if df_anom.empty:
-                            st.info("Không có sản phẩm bất thường trong dataframe với ngưỡng này.")
+                        # Clean 'Năm đăng ký': replace 'trước năm 1980' bằng 1980, convert to numeric
+                        df_clean['Năm đăng ký'] = df_clean['Năm đăng ký'].replace('trước năm 1980', 1980)
+                        df_clean['Năm đăng ký'] = pd.to_numeric(df_clean['Năm đăng ký'], errors='coerce')
+                        # Clean 'Số Km đã đi' nếu cần
+                        df_clean['Số Km đã đi'] = pd.to_numeric(df_clean['Số Km đã đi'], errors='coerce')
+                        # Drop rows còn NaN sau clean
+                        df_clean = df_clean.dropna(subset=['Năm đăng ký', 'Số Km đã đi'])
+                        
+                        if df_clean.empty:
+                            st.warning("Sau clean, không còn rows valid.")
                         else:
-                            st.dataframe(df_anom)
-                            total_anom_df = df_anom.shape[0]
-                            st.write(f"Tổng số sản phẩm bất thường trong dataframe: {total_anom_df}")
-
-                            # Approve/Reject cho data load (tương tự, nhưng dùng session_state riêng)
-                            if 'df_anom_records' not in st.session_state:
-                                st.session_state.df_anom_records = df_anom.to_dict('records')
-
-                            st.write("Chọn sản phẩm để duyệt (từ dataframe):")
-                            selected_df_index = st.selectbox("Chọn index sản phẩm (từ 0)", range(len(st.session_state.df_anom_records)))
-                            if st.button("Approve (df)"):
-                                st.session_state.df_anom_records[selected_df_index]["Status"] = "Approved"
-                                st.success(f"Đã approve sản phẩm {selected_df_index} từ df.")
-                            if st.button("Reject (df)"):
-                                st.session_state.df_anom_records[selected_df_index]["Status"] = "Rejected"
-                                st.success(f"Đã reject sản phẩm {selected_df_index} từ df.")
-
-                            # Refresh bảng df_anom
-                            st.dataframe(pd.DataFrame(st.session_state.df_anom_records))
+                            X = df_clean.drop(columns=["Giá"])
+                            pred_prices = model.predict(X)
+                            residuals = df_clean["Giá"] - pred_prices
+                            is_anom = abs(residuals) > admin_threshold
+                            df_anom = df_clean[is_anom].copy()
+                            df_anom["Giá dự đoán"] = pred_prices[is_anom]
+                            df_anom["Chênh lệch"] = residuals[is_anom]
+                            df_anom["Bất thường loại"] = ["Quá cao" if r > 0 else "Quá thấp" for r in residuals[is_anom]]
+                            df_anom["Status"] = "Pending" # Default cho data load
+                            df_anom["Thời gian"] = None # Không có thời gian cho data load
+                            if df_anom.empty:
+                                st.info("Không có sản phẩm bất thường trong dataframe với ngưỡng này.")
+                            else:
+                                st.dataframe(df_anom)
+                                total_anom_df = df_anom.shape[0]
+                                st.write(f"Tổng số sản phẩm bất thường trong dataframe: {total_anom_df}")
+                                # Approve/Reject cho data load (tương tự, nhưng dùng session_state riêng)
+                                if 'df_anom_records' not in st.session_state:
+                                    st.session_state.df_anom_records = df_anom.to_dict('records')
+                                st.write("Chọn sản phẩm để duyệt (từ dataframe):")
+                                selected_df_index = st.selectbox("Chọn index sản phẩm (từ 0)", range(len(st.session_state.df_anom_records)))
+                                if st.button("Approve (df)"):
+                                    st.session_state.df_anom_records[selected_df_index]["Status"] = "Approved"
+                                    st.success(f"Đã approve sản phẩm {selected_df_index} từ df.")
+                                if st.button("Reject (df)"):
+                                    st.session_state.df_anom_records[selected_df_index]["Status"] = "Rejected"
+                                    st.success(f"Đã reject sản phẩm {selected_df_index} từ df.")
+                                # Refresh bảng df_anom
+                                st.dataframe(pd.DataFrame(st.session_state.df_anom_records))
                 except Exception as e:
                     st.error("Lỗi khi kiểm tra dataframe (kiểm tra cột/format khớp model).")
                     st.exception(e)
-
 # End of file
 
 
