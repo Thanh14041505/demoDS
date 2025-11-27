@@ -326,23 +326,38 @@ elif choice == "Phát hiện bất thường":
                 st.error(f"Model chưa sẵn sàng: {model_load_error}")
             else:
                 try:
-                    # Giả sử df có tất cả cột cần, drop missing Giá
-                    df_clean = df.dropna(subset=['Giá', 'Thương hiệu', 'Dòng xe', 'Tình trạng', 'Loại xe', 'Dung tích xe', 'Xuất xứ', 'Năm đăng ký', 'Số Km đã đi'])
-                    if df_clean.empty:
-                        st.warning("Dataframe không có rows valid để check (missing cột cần thiết).")
+                    # Giả sử df có tất cả cột cần, không drop missing
+                    df_clean = df.copy()
+                    required_cols = ['Giá', 'Thương hiệu', 'Dòng xe', 'Tình trạng', 'Loại xe', 'Dung tích xe', 'Xuất xứ', 'Năm đăng ký', 'Số Km đã đi']
+                    missing_cols = [col for col in required_cols if col not in df_clean.columns]
+                    if missing_cols:
+                        st.error(f"Dataframe thiếu cột: {', '.join(missing_cols)}")
                     else:
                         # Clean 'Năm đăng ký': replace 'trước năm 1980' bằng 1980, convert to numeric
                         df_clean['Năm đăng ký'] = df_clean['Năm đăng ký'].replace('trước năm 1980', 1980)
                         df_clean['Năm đăng ký'] = pd.to_numeric(df_clean['Năm đăng ký'], errors='coerce')
-                        # Clean 'Số Km đã đi' nếu cần
+                        # Fill NaN for 'Năm đăng ký' with 1980
+                        df_clean['Năm đăng ký'].fillna(1980, inplace=True)
+                        
+                        # Clean 'Số Km đã đi' to numeric
                         df_clean['Số Km đã đi'] = pd.to_numeric(df_clean['Số Km đã đi'], errors='coerce')
+                        # Fill NaN with median
+                        km_median = df_clean['Số Km đã đi'].median()
+                        df_clean['Số Km đã đi'].fillna(km_median, inplace=True)
+                        
                         # Clean 'Giá' to numeric
                         df_clean['Giá'] = pd.to_numeric(df_clean['Giá'], errors='coerce')
-                        # Drop rows còn NaN sau clean
-                        df_clean = df_clean.dropna(subset=['Năm đăng ký', 'Số Km đã đi', 'Giá'])
+                        # Fill NaN with median
+                        gia_median = df_clean['Giá'].median()
+                        df_clean['Giá'].fillna(gia_median, inplace=True)
+                        
+                        # For categorical, fill NaN with mode
+                        for col in ['Thương hiệu', 'Dòng xe', 'Tình trạng', 'Loại xe', 'Dung tích xe', 'Xuất xứ']:
+                            mode_val = df_clean[col].mode().iloc[0] if not df_clean[col].mode().empty else 'Unknown'
+                            df_clean[col].fillna(mode_val, inplace=True)
                         
                         if df_clean.empty:
-                            st.warning("Sau clean, không còn rows valid.")
+                            st.warning("Dataframe rỗng sau xử lý.")
                         else:
                             X = df_clean.drop(columns=["Giá"])
                             pred_prices = model.predict(X)
@@ -378,6 +393,7 @@ elif choice == "Phát hiện bất thường":
                     st.exception(e)
 
 # End of file
+
 
 
 
